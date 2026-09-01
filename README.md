@@ -1,2 +1,2 @@
 # ECDAT
-## M6
+## M6-init
