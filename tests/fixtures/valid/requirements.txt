@@ -1,0 +1,14 @@
+# Python dependencies for ECDAT demonstration
+cryptography==41.0.3
+requests==2.31.0
+pyjwt==2.8.0
+cryptography>=3.4.0  # note: unpinned
+bcrypt==4.0.1
+paramiko[ssh]>=3.0.0; python_version >= "3.8"
+flask==3.0.0
+jose==1.0.0
+hashlib==2.0  # crypto hashing
+python-dotenv==1.0.0
+-e git+https://github.com/example/editable-package.git#egg=editablepkg
+-e .
+certifi==2023.7.22

@@ -1,0 +1,3 @@
+This is not a certificate.
+It is just a text file pretending to be one.
+Nothing here can be parsed as X.509 data.
