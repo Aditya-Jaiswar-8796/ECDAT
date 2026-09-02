@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ECDAT runtime artifacts
+backend/app.db
+backend/uploads/
+
+# OS
+Thumbs.db
+.DS_Store
