@@ -1,0 +1,146 @@
+[
+  {
+    "asset_id": "payment-tls-01",
+    "risk_score": 10.0,
+    "score_100": 100.0,
+    "risk_level": "CRITICAL",
+    "migration_priority": "URGENT",
+    "priority_tier": 1,
+    "mosca_assessment": "Harvest-now-decrypt-later: susceptible RSA protects data kept 25 years (~25+5 > 20 yr horizon), and it is internet-exposed, so ciphertext can be captured today and decrypted once a quantum computer exists.",
+    "mosca_diagnostic": "harvest-now-decrypt-later",
+    "harvest_now": true,
+    "breakdown": {
+      "algorithm": 80.0,
+      "data_lifetime": 100.0,
+      "business_criticality": 100.0,
+      "internet_exposure": 100.0,
+      "migration_complexity": 75.0,
+      "mosca_boost": 12.0
+    },
+    "recommendation": "Replace RSA key exchange with ML-KEM (CRYSTALS-Kyber), e.g. ML-KEM-768.",
+    "suggested_target": "ML-KEM-768",
+    "effort_estimate": "2-4 weeks",
+    "trade_offs": [
+      "Larger public keys and ciphertexts than ECDH (bandwidth cost).",
+      "Library/toolchain must ship a FIPS 203 implementation.",
+      "Consider hybrid (e.g. X25519 + ML-KEM) during transition for compat."
+    ],
+    "reason": "RSA key establishment is broken by Shor's algorithm; ML-KEM is the NIST-selected PQ KEM standardized in FIPS 203.",
+    "explanation": "RSA (key size 2048): Public-key crypto (RSA/ECC) is broken by Shor's algorithm at scale. Data lifetime of 25 years; scores 100/100 against a 20-year planning horizon. Business criticality contributes 100/100. Asset is exposed to the internet; exposure contributes 100/100. Migration complexity contributes 75/100. Mosca check flags harvest-now-decrypt-later: a susceptible primitive protects long-lived/exposed data. Weighted result: CRITICAL risk.",
+    "algorithm_known": true
+  },
+  {
+    "asset_id": "jwt-sign-07",
+    "risk_score": 7.33,
+    "score_100": 73.25,
+    "risk_level": "HIGH",
+    "migration_priority": "HIGH",
+    "priority_tier": 2,
+    "mosca_assessment": "No harvest-now-decrypt-later exposure detected for this asset.",
+    "mosca_diagnostic": "no-active-risk",
+    "harvest_now": false,
+    "breakdown": {
+      "algorithm": 80.0,
+      "data_lifetime": 50.0,
+      "business_criticality": 75.0,
+      "internet_exposure": 100.0,
+      "migration_complexity": 50.0,
+      "mosca_boost": 0.0
+    },
+    "recommendation": "Replace ECDSA signatures with ML-DSA (CRYSTALS-Dilithium) or SLH-DSA (SPHINCS+).",
+    "suggested_target": "ML-DSA-44",
+    "effort_estimate": "2-4 weeks",
+    "trade_offs": [
+      "ML-DSA signatures are larger than ECDSA but fast to verify.",
+      "SLH-DSA has small signatures but slower signing; pick by context.",
+      "Certificate/key rotation plus client compatibility must be planned."
+    ],
+    "reason": "ECDSA signatures are forgeable by Shor's algorithm; ML-DSA (FIPS 204) and SLH-DSA (FIPS 205) are the NIST-selected PQ signature schemes.",
+    "explanation": "ECDSA (key size 256): Public-key crypto (RSA/ECC) is broken by Shor's algorithm at scale. Data lifetime of 10 years; scores 50/100 against a 20-year planning horizon. Business criticality contributes 75/100. Asset is exposed to the internet; exposure contributes 100/100. Migration complexity contributes 50/100. Mosca check: no active harvest-now-decrypt-later exposure detected. Weighted result: HIGH risk.",
+    "algorithm_known": true
+  },
+  {
+    "asset_id": "legacy-db-11",
+    "risk_score": 3.75,
+    "score_100": 37.5,
+    "risk_level": "MEDIUM",
+    "migration_priority": "MEDIUM",
+    "priority_tier": 3,
+    "mosca_assessment": "No harvest-now-decrypt-later exposure detected for this asset.",
+    "mosca_diagnostic": "no-active-risk",
+    "harvest_now": false,
+    "breakdown": {
+      "algorithm": 50.0,
+      "data_lifetime": 25.0,
+      "business_criticality": 50.0,
+      "internet_exposure": 0.0,
+      "migration_complexity": 50.0,
+      "mosca_boost": 0.0
+    },
+    "recommendation": "Manual review required: unrecognised algorithm 'DES'. Confirm the primitive and its TLS/library context before planning PQ work.",
+    "suggested_target": null,
+    "effort_estimate": "Review needed",
+    "trade_offs": [
+      "Verify the actual primitive first; may already be PQ-safe."
+    ],
+    "reason": "Algorithm is not in the reviewed mapping; cannot auto-recommend a migration.",
+    "explanation": "Algorithm 'DES' is not in the reviewed mapping and was scored conservatively pending manual review. Data lifetime of 5 years; scores 25/100 against a 20-year planning horizon. Business criticality contributes 50/100. Asset is not internet-exposed; exposure contributes 0/100. Migration complexity contributes 50/100. Mosca check: no active harvest-now-decrypt-later exposure detected. Weighted result: MEDIUM risk.",
+    "algorithm_known": false
+  },
+  {
+    "asset_id": "card-store-03",
+    "risk_score": 1.95,
+    "score_100": 19.5,
+    "risk_level": "LOW",
+    "migration_priority": "LOW",
+    "priority_tier": 4,
+    "mosca_assessment": "Primitive is already post-quantum ready; no harvest-now risk even with long data lifetime.",
+    "mosca_diagnostic": "no-risk-pq-safe",
+    "harvest_now": false,
+    "breakdown": {
+      "algorithm": 5.0,
+      "data_lifetime": 0.0,
+      "business_criticality": 100.0,
+      "internet_exposure": 0.0,
+      "migration_complexity": 25.0,
+      "mosca_boost": 0.0
+    },
+    "recommendation": "AES is already post-quantum ready; no migration required.",
+    "suggested_target": null,
+    "effort_estimate": "None",
+    "trade_offs": [
+      "None — already PQ-ready."
+    ],
+    "reason": "Detected NIST-selected PQ algorithm; already on the secured baseline.",
+    "explanation": "AES (key size 256): AES-256 retains a 128-bit PQ security margin even under Grover. Data lifetime of 25 years; scores 0/100 against a 20-year planning horizon. Business criticality contributes 100/100. Asset is exposed to the internet; exposure contributes 0/100. Migration complexity contributes 25/100. Mosca check: no active harvest-now-decrypt-later exposure detected. Weighted result: LOW risk.",
+    "algorithm_known": true
+  },
+  {
+    "asset_id": "pq-kem-99",
+    "risk_score": 1.82,
+    "score_100": 18.25,
+    "risk_level": "LOW",
+    "migration_priority": "LOW",
+    "priority_tier": 4,
+    "mosca_assessment": "Primitive is already post-quantum ready; no harvest-now risk even with long data lifetime.",
+    "mosca_diagnostic": "no-risk-pq-safe",
+    "harvest_now": false,
+    "breakdown": {
+      "algorithm": 5.0,
+      "data_lifetime": 0.0,
+      "business_criticality": 75.0,
+      "internet_exposure": 0.0,
+      "migration_complexity": 50.0,
+      "mosca_boost": 0.0
+    },
+    "recommendation": "ML-KEM-768 is already post-quantum ready; no migration required.",
+    "suggested_target": null,
+    "effort_estimate": "None",
+    "trade_offs": [
+      "None — already PQ-ready."
+    ],
+    "reason": "Detected NIST-selected PQ algorithm; already on the secured baseline.",
+    "explanation": "ML-KEM-768 (key size unknown): Detected NIST-selected post-quantum algorithm (already PQ-ready). Data lifetime of 30 years; scores 0/100 against a 20-year planning horizon. Business criticality contributes 75/100. Asset is exposed to the internet; exposure contributes 0/100. Migration complexity contributes 50/100. Mosca check: no active harvest-now-decrypt-later exposure detected. Weighted result: LOW risk.",
+    "algorithm_known": true
+  }
+]

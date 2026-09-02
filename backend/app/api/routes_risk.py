@@ -50,6 +50,23 @@ def ingest_risk(
     ingest_risk_assessment(db, scan_id, payload)
 
 
+@risks_router.post("/run", status_code=200)
+def run_risk_engine(
+    scan_id: str = Query(..., description="Target scan"),
+    db: Session = Depends(get_db),
+):
+    """Run the deterministic risk engine over a scan's assets (Member 5).
+
+    Convenience trigger that computes risk scores/priorities/recommendations
+    for every asset in the scan, persists them via the canonical ingest path,
+    and returns the rich M6-facing assessments.
+    """
+    _require_scan(db, scan_id)
+    from app.services.risk_service import assess_scan
+
+    return assess_scan(db, scan_id)
+
+
 @risks_router.get("")
 def list_risks(
     scan_id: str | None = Query(None, description="Filter by scan"),

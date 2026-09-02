@@ -1,0 +1,7 @@
+# ECDAT backend (Member 5) — test-only dependencies.
+# Install after the runtime requirements.txt, then run:
+#   python -m pytest tests -v
+
+-r requirements.txt
+pytest>=8.0
+httpx>=0.27
