@@ -1,0 +1,6 @@
+django==4.2.2
+; we should not crash on weird lines
+***bad line***
+cryptography==40.0.0# comment after version
+{{{{malformed
+requests
