@@ -1,0 +1,617 @@
+{
+  "schema_version": "1.0",
+  "document": "crypto_knowledge.json",
+  "owner": "Member 2 - Cryptography + PQC Technical Authority",
+  "generated": "2026-09-02",
+  "purpose": "Authoritative cryptographic classification table for ECDAT. Maps the algorithms emitted by the source scanner (Member 3) to family, primitive/use, quantum concern, legacy status, risk baseline and technical notes. Consumed by the risk engine (Member 5) and the dashboard (Member 6).",
+  "classification_authority": "Member 2 defines and owns all classifications in this document. Member 6 may format or validate this JSON but must not invent algorithms, families, legacy statuses, risk baselines or nomenclature.",
+  "disclaimer": "Severity levels and base_risk_score values are engineering guidance for prioritisation, not guarantees of security or of failure. No quantum arrival dates are asserted anywhere in this document; timeline reasoning uses configurable planning horizons defined in methodology.json.",
+  "families": {
+    "asymmetric": {
+      "label": "Asymmetric (public-key)",
+      "description": "Public/private key pairs. Used for signatures and key establishment. Fundamentally broken by Shor's algorithm once a cryptanalytically relevant quantum computer exists, regardless of key size."
+    },
+    "symmetric": {
+      "label": "Symmetric (secret-key)",
+      "description": "Shared-secret ciphers. Fast bulk encryption. Quantum impact is limited to Grover's quadratic speedup on key search, which is manageable with adequate key sizes."
+    },
+    "hash": {
+      "label": "Hash / message digest",
+      "description": "One-way digests used for integrity, fingerprinting, message authentication (HMAC) and key derivation. Quantum impact is limited to Grover on preimages."
+    },
+    "pqc": {
+      "label": "Post-quantum cryptography",
+      "description": "NIST-standardised primitives whose hard problems (module lattices) have no known quantum speed-up. Designed to remain secure against both classical and quantum adversaries."
+    }
+  },
+  "legacy_status_scale": {
+    "BROKEN": {
+      "label": "Broken / obsolete",
+      "description": "Mathematically broken or catastrophically weak for the intended security use. Immediate remediation required; quantum is not the primary driver.",
+      "red_flag": true
+    },
+    "DEPRECATED": {
+      "label": "Deprecated",
+      "description": "Formally deprecated; prohibited or discouraged for new use; removal path defined by a standards body. Migration actively underway.",
+      "red_flag": true
+    },
+    "TRANSITIONAL": {
+      "label": "Classically sound, quantum-vulnerable",
+      "description": "Secure against classical adversaries at recommended sizes but broken by quantum algorithms. Schedule post-quantum migration within the planning horizon.",
+      "red_flag": true
+    },
+    "ACTIVE": {
+      "label": "Currently recommended",
+      "description": "Accepted non-PQC primitives that are quantum-resilient at the right sizes/parameters. Keep, do not regress.",
+      "red_flag": false
+    },
+    "PQC_RECOMMENDED": {
+      "label": "Post-quantum, recommended",
+      "description": "NIST-standardised post-quantum primitives. Default for new designs.",
+      "red_flag": false
+    }
+  },
+  "operations": {
+    "hashing": {
+      "label": "Hashing",
+      "description": "One-way digest used for integrity, fingerprinting or verification."
+    },
+    "message_authentication": {
+      "label": "Message authentication (MAC/HMAC)",
+      "description": "Keyed integrity check. Does not provide confidentiality."
+    },
+    "symmetric_encryption": {
+      "label": "Symmetric encryption",
+      "description": "Confidentiality using a shared secret; authenticated modes (AEAD) also provide integrity."
+    },
+    "asymmetric_encryption": {
+      "label": "Asymmetric encryption",
+      "description": "Confidentiality with a public key (e.g. RSA-OAEP, hybrid envelopes)."
+    },
+    "digital_signature": {
+      "label": "Digital signature",
+      "description": "Authenticity, integrity and non-repudiation."
+    },
+    "key_establishment": {
+      "label": "Key establishment",
+      "description": "Key exchange / KEM establishing shared secrets (DH, ECDH, ML-KEM). The primary harvest-now-decrypt-later surface."
+    },
+    "key_wrapping": {
+      "label": "Key wrapping",
+      "description": "Encrypting one key under another (KEK/DEK model); confidentiality is governed by the underlying cipher."
+    },
+    "key_derivation": {
+      "label": "Key derivation",
+      "description": "KDF / password-based derivation (PBKDF2, scrypt, argon2, HKDF)."
+    },
+    "key_generation": {
+      "label": "Key generation",
+      "description": "Creation of keys/parameters. Context finding, not itself a risk signal."
+    },
+    "randomness": {
+      "label": "Randomness",
+      "description": "Random/secure-random sources. Context finding; entropy quality matters but is not a quantum risk signal."
+    },
+    "key_management": {
+      "label": "Key management / trust store",
+      "description": "Keystore access, key import and crypto-library imports. Context findings that signal crypto usage without a primitive."
+    },
+    "unknown": {
+      "label": "Unknown",
+      "description": "Failure to resolve a primitive; manual review required."
+    }
+  },
+  "core_algorithms": [
+    {
+      "id": "RSA",
+      "family": "asymmetric",
+      "aliases": [
+        "RSA",
+        "RSA/ECB/PKCS1Padding",
+        "RSA/ECB/OAEPWithSHA-256AndMGF1Padding",
+        "RSA-OAEP",
+        "RSASSA-PKCS1-v1_5",
+        "RSA-OAEP-256"
+      ],
+      "uses": [
+        "asymmetric_encryption",
+        "digital_signature",
+        "key_establishment",
+        "key_wrapping"
+      ],
+      "key_size_guidance": "2048 bits is the current classically-accepted minimum (SP 800-131A); 3072 is preferred where allowed. Quantum: Shor breaks any size; growing the modulus does not provide post-quantum security and adds cost.",
+      "quantum_concern": {
+        "severity": "HIGH",
+        "shor_vulnerable": true,
+        "grover_impact": "none",
+        "mechanism": "Shor's algorithm factors the public modulus in polynomial time, exposing the private key. Breaks confidentiality (harvest-now, decrypt-later) and permits signature forgery."
+      },
+      "classical_security": "strong",
+      "quantum_resilience": "vulnerable",
+      "legacy_status": "TRANSITIONAL",
+      "base_risk_score": 7.0,
+      "notes": "RSA-1024 is broken/deprecated (SP 800-131A). For new designs prefer ML-KEM-768 for key establishment and ML-DSA for signatures; use RSA+ML-KEM / RSA+ML-DSA hybrids during the transition (see recommendations.json).",
+      "references": ["NIST SP 800-131A", "NIST IR 8545", "RFC 8017"]
+    },
+    {
+      "id": "ECC",
+      "family": "asymmetric",
+      "aliases": ["EC", "ECC", "secp256r1", "P-256", "secp384r1", "P-384", "secp521r1", "P-521", "X25519"],
+      "uses": ["key_establishment", "digital_signature"],
+      "key_size_guidance": "Curves of 256 bits and above are classically strong. Quantum: Shor solves the elliptic-curve discrete logarithm for any curve; larger curves do not provide post-quantum security.",
+      "quantum_concern": {
+        "severity": "HIGH",
+        "shor_vulnerable": true,
+        "grover_impact": "none",
+        "mechanism": "Shor's algorithm (via reduction of the elliptic-curve discrete-logarithm problem) recovers private scalars from public points on any standard curve."
+      },
+      "classical_security": "strong",
+      "quantum_resilience": "vulnerable",
+      "legacy_status": "TRANSITIONAL",
+      "base_risk_score": 7.0,
+      "notes": "M3 often surfaces 'EC' or a raw curve name (java.security). The concrete primitive depends on the operation: KeyAgreement resolves to ECDH, Signature resolves to ECDSA (see the ECDH and ECDSA entries).",
+      "references": ["FIPS 186-5", "NIST SP 800-56A"]
+    },
+    {
+      "id": "ECDSA",
+      "family": "asymmetric",
+      "aliases": ["ECDSA", "SHA256withECDSA", "SHA384withECDSA"],
+      "uses": ["digital_signature"],
+      "key_size_guidance": "P-256 / P-384 / P-521 are classically strong. Quantum: no curve size is safe.",
+      "quantum_concern": {
+        "severity": "HIGH",
+        "shor_vulnerable": true,
+        "grover_impact": "none",
+        "mechanism": "Recovery of the signing scalar from the public key makes signatures forgeable, including retroactive forgery of signatures issued before the quantum era."
+      },
+      "classical_security": "strong",
+      "quantum_resilience": "vulnerable",
+      "legacy_status": "TRANSITIONAL",
+      "base_risk_score": 7.0,
+      "notes": "Signature longevity matters: an ECDSA signature created today can be forged once its private key is recovered. For artifacts that must remain verifiable for decades, prefer ML-DSA or hash-based signatures (LMS/XMSS), combined with timestamping.",
+      "references": ["FIPS 186-5", "FIPS 205"]
+    },
+    {
+      "id": "ECDH",
+      "family": "asymmetric",
+      "aliases": ["ECDH", "createECDH", "DH", "X25519", "EC (key agreement)"],
+      "uses": ["key_establishment"],
+      "key_size_guidance": "P-256 / P-384 / X25519 are classically strong. Quantum: migrate rather than grow.",
+      "quantum_concern": {
+        "severity": "HIGH",
+        "shor_vulnerable": true,
+        "grover_impact": "none",
+        "mechanism": "Recovery of the shared secret from captured transcripts; the primary harvest-now-decrypt-later surface for internet-exposed traffic."
+      },
+      "classical_security": "strong",
+      "quantum_resilience": "vulnerable",
+      "legacy_status": "TRANSITIONAL",
+      "base_risk_score": 7.0,
+      "notes": "Replace with ML-KEM-768 for new key management; hybrid X25519+ML-KEM-768 preserves current assurance while adding post-quantum security during the transition.",
+      "references": ["NIST SP 800-56A", "IETF TLS hybrid KEM drafts"]
+    },
+    {
+      "id": "AES",
+      "family": "symmetric",
+      "aliases": [
+        "AES",
+        "AES/GCM/NoPadding",
+        "AES/CBC/PKCS5Padding",
+        "AES-128-GCM",
+        "AES-256-GCM",
+        "AES-128-CBC",
+        "AES-256-CBC",
+        "AES-GCM",
+        "AES-CBC",
+        "aes-128-gcm",
+        "aes-128-cbc",
+        "aes-256-gcm",
+        "aes-256-cbc",
+        "AES-128-CBC (Fernet)"
+      ],
+      "uses": ["symmetric_encryption", "key_wrapping", "message_authentication"],
+      "key_size_guidance": "AES-256 is the recommended setting. AES-128 is acceptable today but should be raised to 256 where data must remain confidential beyond a quantum era (Grover reduces effective search to 2^64).",
+      "quantum_concern": {
+        "severity": "LOW",
+        "shor_vulnerable": false,
+        "grover_impact": "halves_key_search",
+        "mechanism": "Grover's search gives a quadratic speedup over exhaustive key search. AES-256 retains ~2^128 security; AES-128 drops to ~2^64. Grover also requires sustained coherent computation, generally judged low risk for 256-bit keys."
+      },
+      "classical_security": "strong",
+      "quantum_resilience": "resilient",
+      "legacy_status": "ACTIVE",
+      "base_risk_score": 1.0,
+      "notes": "Prefer authenticated modes such as AES-GCM. AES-128 is granted no key_size bonus and is adjusted upward by methodology.json when data must outlive a quantum era.",
+      "references": ["FIPS 197", "NIST SP 800-38A", "NIST SP 800-38D"]
+    },
+    {
+      "id": "3DES",
+      "family": "symmetric",
+      "aliases": ["DESede", "3DES", "DES-EDE3", "DESEDE", "des-ede3"],
+      "uses": ["symmetric_encryption"],
+      "key_size_guidance": "No size restores acceptability: effective strength ~112 bits with a 64-bit block. Removal is the only correct action.",
+      "quantum_concern": {
+        "severity": "LOW",
+        "shor_vulnerable": false,
+        "grover_impact": "halves_key_search",
+        "mechanism": "Meet-in-the-middle reduces effective strength to ~112 bits classically; the 64-bit block size enables block-boundary attacks (Sweet32). Grover would halve the effective key search again, but classical deprecation already mandates removal."
+      },
+      "classical_security": "weak",
+      "quantum_resilience": "irrelevant",
+      "legacy_status": "BROKEN",
+      "base_risk_score": 9.0,
+      "notes": "NIST SP 800-131A Rev 2 deprecates 3DES and defines a removal path; do not use for new systems. Replace with AES-256-GCM.",
+      "references": ["NIST SP 800-131A"]
+    },
+    {
+      "id": "DES",
+      "family": "symmetric",
+      "aliases": ["DES"],
+      "uses": ["symmetric_encryption"],
+      "key_size_guidance": "56-bit keys; brute force is trivial on modern hardware. No configuration is acceptable.",
+      "quantum_concern": {
+        "severity": "NONE",
+        "shor_vulnerable": false,
+        "grover_impact": "none",
+        "mechanism": "56-bit keys are trivially brute-forced classically; quantum analysis is moot."
+      },
+      "classical_security": "broken",
+      "quantum_resilience": "irrelevant",
+      "legacy_status": "BROKEN",
+      "base_risk_score": 10.0,
+      "notes": "DES is cryptographically obsolete. Any DES accepted in scans is an immediate finding.",
+      "references": ["NIST SP 800-131A"]
+    },
+    {
+      "id": "MD5",
+      "family": "hash",
+      "aliases": ["MD5", "md5"],
+      "uses": ["hashing", "message_authentication"],
+      "key_size_guidance": "Not applicable.",
+      "quantum_concern": {
+        "severity": "NONE",
+        "shor_vulnerable": false,
+        "grover_impact": "none",
+        "mechanism": "Collision and chosen-prefix collision attacks are practical classically; Grover is irrelevant to collision resistance. Classical breakage dominates and is the remediation driver."
+      },
+      "classical_security": "broken",
+      "quantum_resilience": "irrelevant",
+      "legacy_status": "BROKEN",
+      "base_risk_score": 10.0,
+      "notes": "Unacceptable for digital signatures, certificates and integrity checks where collision resistance matters (chosen-prefix attacks enable practical forgery). Password storage must use dedicated KDFs (argon2id, bcrypt, scrypt, PBKDF2). HMAC-MD5 is structurally less affected but deprecated in practice (RFC 6151).",
+      "references": ["RFC 6151"]
+    },
+    {
+      "id": "SHA-1",
+      "family": "hash",
+      "aliases": ["SHA-1", "SHA1", "sha1"],
+      "uses": ["hashing", "message_authentication"],
+      "key_size_guidance": "Not applicable.",
+      "quantum_concern": {
+        "severity": "NONE",
+        "shor_vulnerable": false,
+        "grover_impact": "none",
+        "mechanism": "Collision attacks are practical classically (SHAttered); there is no quantum component. Classical breakage is the remediation driver."
+      },
+      "classical_security": "broken",
+      "quantum_resilience": "irrelevant",
+      "legacy_status": "BROKEN",
+      "base_risk_score": 9.5,
+      "notes": "Same posture as MD5 for collision-sensitive uses. Not acceptable for new code; HMAC-SHA-1 as a MAC is phasing out - prefer HMAC-SHA-256. Replace with the SHA-256 family.",
+      "references": ["NIST SP 800-131A"]
+    },
+    {
+      "id": "SHA-256",
+      "family": "hash",
+      "aliases": ["SHA-256", "SHA256", "sha256"],
+      "uses": ["hashing", "message_authentication", "key_derivation"],
+      "key_size_guidance": "Not applicable (no key). 256-bit output at or above recommended margins.",
+      "quantum_concern": {
+        "severity": "LOW",
+        "shor_vulnerable": false,
+        "grover_impact": "halves_preimage_search",
+        "mechanism": "Grover halves preimage search (~2^128 for a 256-bit output), still above recommended margins. Collision resistance is unaffected beyond the classical birthday bound (~2^128)."
+      },
+      "classical_security": "strong",
+      "quantum_resilience": "resilient",
+      "legacy_status": "ACTIVE",
+      "base_risk_score": 1.0,
+      "notes": "Current default digest. Keep; choose SHA-256/SHA-384/SHA-512 by application. For password storage use a dedicated slow KDF, not a plain digest.",
+      "references": ["FIPS 180-4"]
+    },
+    {
+      "id": "ML-KEM",
+      "family": "pqc",
+      "aliases": ["ML-KEM", "ML-KEM-512", "ML-KEM-768", "ML-KEM-1024", "Kyber", "CRYSTALS-Kyber"],
+      "uses": ["key_establishment"],
+      "key_size_guidance": "Parameter sets 512/768/1024 map to NIST security categories 1/3/5. ML-KEM-768 is the recommended default for general key establishment; ML-KEM-1024 for higher assurance.",
+      "quantum_concern": {
+        "severity": "NONE",
+        "shor_vulnerable": false,
+        "grover_impact": "none",
+        "mechanism": "Module-lattice (MLWE) hardness has no known quantum speed-up; FIPS 203 standardised post-quantum KEM."
+      },
+      "classical_security": "strong",
+      "quantum_resilience": "resilient",
+      "legacy_status": "PQC_RECOMMENDED",
+      "base_risk_score": 0.0,
+      "notes": "FIPS 203. Prefer hybrid X25519+ML-KEM-768 during the transition to preserve an existing security baseline.",
+      "references": ["FIPS 203"]
+    },
+    {
+      "id": "ML-DSA",
+      "family": "pqc",
+      "aliases": ["ML-DSA", "ML-DSA-44", "ML-DSA-65", "ML-DSA-87", "Dilithium", "CRYSTALS-Dilithium"],
+      "uses": ["digital_signature"],
+      "key_size_guidance": "ML-DSA-44/65/87 map to NIST security categories 1/3/5. ML-DSA-65 is the recommended default. Signatures are larger than ECDSA - verify bandwidth/transport constraints.",
+      "quantum_concern": {
+        "severity": "NONE",
+        "shor_vulnerable": false,
+        "grover_impact": "none",
+        "mechanism": "Module-lattice (MSIS) hardness has no known quantum speed-up; FIPS 204 standardised post-quantum signature scheme."
+      },
+      "classical_security": "strong",
+      "quantum_resilience": "resilient",
+      "legacy_status": "PQC_RECOMMENDED",
+      "base_risk_score": 0.0,
+      "notes": "FIPS 204. Stateless; for stateful, very-long-lived artifacts consider hash-based signatures (LMS/XMSS, FIPS 205) as a complement.",
+      "references": ["FIPS 204", "FIPS 205"]
+    }
+  ],
+  "extended_algorithms": {
+    "description": "Lightweight lookups for algorithms Member 3 currently emits that are outside the required core set. Each entry is classified by Member 2 but is not promoted to core until reviewed.",
+    "entries": {
+      "SHA-384": {
+        "family": "hash",
+        "uses": ["hashing", "message_authentication"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Quantum-resilient at recommended strength. Keep."
+      },
+      "SHA-512": {
+        "family": "hash",
+        "uses": ["hashing", "message_authentication"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Quantum-resilient at recommended strength. Keep."
+      },
+      "SHA-224": {
+        "family": "hash",
+        "uses": ["hashing"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 2.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "112-bit preimage resistance; prefer SHA-256 or larger where long-term integrity is required."
+      },
+      "SHA3-256": {
+        "family": "hash",
+        "uses": ["hashing", "message_authentication"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Quadruple SHA-256 strength posture. Keep."
+      },
+      "SHA3-512": {
+        "family": "hash",
+        "uses": ["hashing", "message_authentication"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Quadruple SHA-256 strength posture. Keep."
+      },
+      "BLAKE2b": {
+        "family": "hash",
+        "uses": ["hashing", "message_authentication"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Modern hash; acceptable where its speed/ease is required."
+      },
+      "BLAKE2s": {
+        "family": "hash",
+        "uses": ["hashing"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Acceptable; smaller output family."
+      },
+      "HMAC-SHA256": {
+        "family": "hash",
+        "uses": ["message_authentication", "key_derivation"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Preferred MAC construction. Keep."
+      },
+      "HMAC-SHA1": {
+        "family": "hash",
+        "uses": ["message_authentication"],
+        "legacy_status": "DEPRECATED",
+        "base_risk_score": 6.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "MAC use is phasing out; prefer HMAC-SHA-256."
+      },
+      "PBKDF2": {
+        "family": "hash",
+        "uses": ["key_derivation"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 2.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Acceptable only with a high iteration count; Grover speeds brute force of low-entropy passwords, so prefer a memory-hard KDF (argon2id) for new work."
+      },
+      "scrypt": {
+        "family": "hash",
+        "uses": ["key_derivation"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Memory-hard KDF; acceptable for password storage."
+      },
+      "bcrypt": {
+        "family": "hash",
+        "uses": ["key_derivation"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.5,
+        "quantum_concern_severity": "LOW",
+        "notes": "Acceptable for password storage; keep cost factor current, or prefer argon2id."
+      },
+      "argon2": {
+        "family": "hash",
+        "uses": ["key_derivation"],
+        "legacy_status": "ACTIVE",
+        "base_risk_score": 1.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "Recommended password KDF."
+      },
+      "Blowfish": {
+        "family": "symmetric",
+        "uses": ["symmetric_encryption"],
+        "legacy_status": "DEPRECATED",
+        "base_risk_score": 4.0,
+        "quantum_concern_severity": "LOW",
+        "notes": "64-bit block cipher with block-boundary attacks; replace with AES."
+      },
+      "EC (key agreement context)": {
+        "family": "asymmetric",
+        "uses": ["key_establishment"],
+        "legacy_status": "TRANSITIONAL",
+        "base_risk_score": 7.0,
+        "quantum_concern_severity": "HIGH",
+        "notes": "Curve primitives surfaced by M3 rightfully resolve through the ECDH entry; kept here for deterministic scoring."
+      }
+    }
+  },
+  "fallback_rules": {
+    "description": "Used by the risk engine when an asset has no resolvable algorithm (null, misspelled, or unknown to the knowledge base) or an extended algorithm has no entry. Classification is conservative and always requires human review.",
+    "rules": [
+      {
+        "operation": "encryption",
+        "fallback_family": "symmetric",
+        "fallback_legacy_status": "TRANSITIONAL",
+        "fallback_base_risk_score": 4.0,
+        "review_required": true,
+        "note": "Unknown cipher; default to generic encryption. Verify whether the underlying primitive is classical or PQC."
+      },
+      {
+        "operation": "decryption",
+        "fallback_family": "symmetric",
+        "fallback_legacy_status": "TRANSITIONAL",
+        "fallback_base_risk_score": 4.0,
+        "review_required": true,
+        "note": "Unknown cipher (decryption side); same stance as 'encryption'."
+      },
+      {
+        "operation": "symmetric_encryption",
+        "fallback_family": "symmetric",
+        "fallback_legacy_status": "TRANSITIONAL",
+        "fallback_base_risk_score": 4.0,
+        "review_required": true,
+        "note": "Unknown symmetric cipher; verify mode (AEAD preferred) and key size."
+      },
+      {
+        "operation": "hashing",
+        "fallback_family": "hash",
+        "fallback_legacy_status": "DEPRECATED",
+        "fallback_base_risk_score": 5.0,
+        "review_required": true,
+        "note": "Unknown digest; assume at-least-deprecated until identified (could be MD5-class collision-broken)."
+      },
+      {
+        "operation": "mac",
+        "fallback_family": "hash",
+        "fallback_legacy_status": "DEPRECATED",
+        "fallback_base_risk_score": 5.0,
+        "review_required": true,
+        "note": "Unknown MAC; verify HMAC construction and underlying digest."
+      },
+      {
+        "operation": "signature",
+        "fallback_family": "asymmetric",
+        "fallback_legacy_status": "TRANSITIONAL",
+        "fallback_base_risk_score": 7.0,
+        "review_required": true,
+        "note": "Unknown signature scheme; assume RSA/ECDSA-class and review."
+      },
+      {
+        "operation": "key_agreement",
+        "fallback_family": "asymmetric",
+        "fallback_legacy_status": "TRANSITIONAL",
+        "fallback_base_risk_score": 7.0,
+        "review_required": true,
+        "note": "Unknown key agreement; assume DH/ECDH-class and favour harvest-now-decrypt-later assessment."
+      },
+      {
+        "operation": "keyexchange",
+        "fallback_family": "asymmetric",
+        "fallback_legacy_status": "TRANSITIONAL",
+        "fallback_base_risk_score": 7.0,
+        "review_required": true,
+        "note": "Alias of key_agreement in the legacy contract vocabulary."
+      },
+      {
+        "operation": "key_derivation",
+        "fallback_family": "hash",
+        "fallback_legacy_status": "ACTIVE",
+        "fallback_base_risk_score": 3.0,
+        "review_required": true,
+        "note": "Unknown KDF; verify parameters (iterations, memory)."
+      },
+      {
+        "operation": "key_generation",
+        "fallback_family": "key_management",
+        "fallback_legacy_status": "ACTIVE",
+        "fallback_base_risk_score": 0.0,
+        "review_required": false,
+        "note": "Context finding only; signals crypto usage, not a risk-to-migrate."
+      },
+      {
+        "operation": "randomness",
+        "fallback_family": "key_management",
+        "fallback_legacy_status": "ACTIVE",
+        "fallback_base_risk_score": 0.0,
+        "review_required": false,
+        "note": "Context finding only; verify source is a CSPRNG."
+      },
+      {
+        "operation": "keystore",
+        "fallback_family": "key_management",
+        "fallback_legacy_status": "ACTIVE",
+        "fallback_base_risk_score": 0.0,
+        "review_required": true,
+        "note": "Context finding only; inspect trust store contents separately."
+      },
+      {
+        "operation": "key_import",
+        "fallback_family": "key_management",
+        "fallback_legacy_status": "ACTIVE",
+        "fallback_base_risk_score": 0.0,
+        "review_required": true,
+        "note": "Context finding only."
+      },
+      {
+        "operation": "crypto_import",
+        "fallback_family": "key_management",
+        "fallback_legacy_status": "ACTIVE",
+        "fallback_base_risk_score": 0.0,
+        "review_required": true,
+        "note": "Weak signal (bare crypto library import); context only."
+      },
+      {
+        "operation": "unknown",
+        "fallback_family": "unknown",
+        "fallback_legacy_status": "DEPRECATED",
+        "fallback_base_risk_score": 5.0,
+        "review_required": true,
+        "note": "Unresolvable primitive; manual review required."
+      }
+    ]
+  },
+  "governance": {
+    "classification_source": "member_2",
+    "m6_constraints": "Member 6 may format, validate and render these documents. Member 6 must not invent algorithms, families, legacy statuses, quantum-severity levels, base_risk_score values or nomenclature. Any classification change is raised with Member 2 and increments schema_version.",
+    "change_process": "Updates are reviewed by Member 2, validated by tests/test_crypto_knowledge.py and propagated to recommendations.json and methodology.json together (schema_version bump).",
+    "validation": "Run: python -m unittest tests.test_crypto_knowledge -v"
+  }
+}
