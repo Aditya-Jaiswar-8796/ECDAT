@@ -1,0 +1,241 @@
+{
+  "schema_version": "1.0",
+  "document": "recommendations.json",
+  "owner": "Member 2 - Cryptography + PQC Technical Authority",
+  "generated": "2026-09-02",
+  "purpose": "Migration recommendations, post-quantum (PQC) guidance, hybrid-migration strategy and crypto-agility practices. Member 5 uses per_algorithm entries to emit Recommendation payloads; Member 6 renders them. No quantum arrival dates are asserted; timing is governed by the configurable planning horizon in methodology.json.",
+  "action_vocabulary": {
+    "KEEP": "Retain as-is; no migration required.",
+    "UPGRADE_PARAMETERS": "Keep the primitive but change parameters (key size, mode, iteration count).",
+    "REPLACE": "Replace with another primitive (typically PQC, possibly via hybrid first).",
+    "REMOVE": "Remove usage entirely.",
+    "ADOPT": "Introduce as the recommended default for new designs."
+  },
+  "pqc_primitives": {
+    "ML-KEM": {
+      "standard": "FIPS 203",
+      "purpose": "Post-quantum key encapsulation mechanism (KEM) for key establishment. Provides the reusable/forward-secret shared secret that symmetric encryption then protects.",
+      "migration_role": "Replaces ECDH, RSA key transport and DH in TLS key exchange, messaging, VPNs and envelope encryption as the key-establishment primitive.",
+      "parameter_sets": [
+        { "name": "ML-KEM-512", "nist_security_category": 1, "use_case": "Baseline; prefer a higher category unless constrained." },
+        { "name": "ML-KEM-768", "nist_security_category": 3, "use_case": "Recommended default for general key establishment." },
+        { "name": "ML-KEM-1024", "nist_security_category": 5, "use_case": "Higher assurance for long-lived or high-value data." }
+      ],
+      "trade_offs": {
+        "bandwidth": "Ciphertexts and encapsulation keys are larger than ECDH outputs; relevant on constrained transports.",
+        "implementation": "Constant-time-safe implementations are widely available (OpenSSL, liboqs, BoringSSL, JCE providers); validate provider provenance.",
+        "maturity": "Standardised (FIPS 203); ecosystem adoption is ongoing.",
+        "key_sizes": "Public keys ~800-1600 bytes depending on parameter set.",
+        "interop": "Hybrid TLS drafts (e.g. X25519 + ML-KEM-768) preserve interoperability with classical peers during transition."
+      }
+    },
+    "ML-DSA": {
+      "standard": "FIPS 204",
+      "purpose": "Post-quantum digital signatures for authentication, integrity, code-signing and certificates.",
+      "migration_role": "Replaces ECDSA and RSA signatures for newly issued keys; for very long-lived signed artifacts complement with hash-based signatures (LMS/XMSS, FIPS 205).",
+      "parameter_sets": [
+        { "name": "ML-DSA-44", "nist_security_category": 1, "use_case": "Baseline." },
+        { "name": "ML-DSA-65", "nist_security_category": 3, "use_case": "Recommended default for general signing." },
+        { "name": "ML-DSA-87", "nist_security_category": 5, "use_case": "Higher assurance." }
+      ],
+      "trade_offs": {
+        "bandwidth": "Signatures are ~2.4-4.6 KB (parameter dependent), far larger than ECDSA ~64-96 bytes; affects bandwidth and storage for high-throughput or signed-artifact-heavy systems.",
+        "verification_cost": "Verification is fast; generation is heavier than ECDSA.",
+        "statelessness": "Stateless by design (unlike hash-based signatures); stateful schemes require careful state management.",
+        "maturity": "Standardised (FIPS 204); ecosystem adoption ongoing."
+      }
+    },
+    "hash_based_signatures": {
+      "standard": "FIPS 205 (LMS, XMSS)",
+      "purpose": "Stateful hash-based signatures with strong, well-understood security assumptions; best suited to special cases such as long-lived firmware and boot chain artifacts.",
+      "migration_role": "Complementary to ML-DSA where ultra-long signature validity is required; not a general-purpose replacement.",
+      "trade_offs": {
+        "state_management": "Stateful signing requires careful sequencing; a state reuse is fatal.",
+        "use_case": "Restricted to niche, well-governed use cases."
+      }
+    }
+  },
+  "hybrid_migration": {
+    "definition": "Use the PQC primitive alongside the existing classical primitive such that security holds if at least one component is secure. This avoids a mass cut-over and preserves current assurance during the transition.",
+    "eligibility_rule": "Hybrid is used while the classical scheme is still trusted AND the target PQC scheme is available in the same stack. Drop the classical component only when, by your own policy horizon, the classical scheme remains secure for the full remaining lifetime of the data and the ecosystem no longer depends on it.",
+    "examples": [
+      {
+        "name": "X25519 + ML-KEM-768",
+        "use": "TLS key establishment; the leading hybrid-KEM combination (IETF hybrid TLS drafts)."
+      },
+      {
+        "name": "P-256 + ML-KEM-768",
+        "use": "Key establishment for systems that must retain an NIST curve baseline during transition."
+      },
+      {
+        "name": "ECDSA + ML-DSA",
+        "use": "Signatures/certificates where both signatures are included and at least one must verify."
+      },
+      {
+        "name": "RSA-PSS + ML-DSA",
+        "use": "Signature schemes rooted in RSA PKI during migration."
+      }
+    ],
+    "trade_offs": {
+      "bandwidth": "Combined KEM ciphertexts or dual signatures increase payload size.",
+      "implementation_complexity": "Dual-encoding, dual-key lifecycle and two verifications add engineering cost.",
+      "maturity": "Hybrid constructions are being standardised; pin versions and test interop.",
+      "key_lifecycle": "Two key pairs, two rotations schedules, two certificate chains to manage.",
+      "risk_balance": "Compromise of either component does not break the combination as long as the other remains secure."
+    },
+    "exit_criteria": "Move from hybrid to pure PQC when the remaining lifetime of protected data is shorter than the classical scheme's trust horizon per your configuration, and all peer systems support the PQC primitive. These are policy decisions, not calendar forecasts."
+  },
+  "crypto_agility": {
+    "definition": "The ability to change cryptographic primitives, parameters and providers without redesigning or redeploying applications.",
+    "practices": [
+      "Maintain a live inventory of algorithms, parameters and locations (this project's crypto assets / CBOM).",
+      "Treat algorithm choice as configuration/data, never hard-coded literals in application code.",
+      "Use provider-native abstraction layers (Java JCA/JCE, OpenSSL providers, WebCrypto, OS crypto APIs) instead of bespoke wrappers.",
+      "Establish a capability policy (allow/deny) per environment and gate CI on it.",
+      "Ship parameter upgrades (AES-128 -> AES-256, 2048 -> 3072, PBKDF2 iterations) as routine, reversible releases.",
+      "Maintain key-rotation and certificate-renewal processes that can run ahead of schedule.",
+      "Keep legacy modes behind kill switches and collect usage telemetry to measure deprecation.",
+      "Monitor crypto-relevant dependencies for known vulnerabilities and latest versions (ties into the CBOM maintained by Member 4).",
+      "Re-run a full scan per release so new crypto usage cannot silently bypass policy."
+    ],
+    "currency": "Algorithms on the ACTIVE/PQC_RECOMMENDED list are allowed; TRANSITIONAL requires a migration ticket; BROKEN/DEPRECATED are denied by default."
+  },
+  "effort_drivers": [
+    "Library/provider substitution and version pinning",
+    "Key and certificate lifecycle changes (sizes, chains, CA support)",
+    "Protocol and serialisation changes (handshakes, headers, formats)",
+    "At-rest data re-encryption volumes and tools",
+    "Hardware trust anchors (HSM, secure elements, TPM) support for PQC",
+    "Interoperability testing with peer/cloud/SaaS systems",
+    "Third-party and product dependencies (tracked by the CBOM)",
+    "Operational change windows and regression coverage"
+  ],
+  "per_algorithm": [
+    {
+      "algorithm": "RSA",
+      "action": "REPLACE",
+      "quantum_driver": "Shor (HIGH)",
+      "suggested_target": "ML-KEM-768 for key establishment; ML-DSA-65 (hybrid ECDSA/RSA + ML-DSA) for signatures",
+      "hybrid_recommendation": "RSA + ML-KEM-768 (KEM), RSA-PSS + ML-DSA (signatures) during transition",
+      "effort_estimate": "Medium - library changes plus key/certificate lifecycle; protocol changes where RSA is embedded in handshakes.",
+      "priority_drivers": ["key_establishment LIFETIME", "digital_signature longevity"],
+      "notes": "Do not grow to 3072/4096 and call it done; that only extends the classical tail. Plan replacement."
+    },
+    {
+      "algorithm": "ECC",
+      "action": "REPLACE",
+      "quantum_driver": "Shor (HIGH)",
+      "suggested_target": "ML-KEM-768 (key establishment), ML-DSA-65 (signatures)",
+      "hybrid_recommendation": "P-256 + ML-KEM-768; ECDSA + ML-DSA",
+      "effort_estimate": "Medium.",
+      "priority_drivers": ["key_establishment LIFETIME"],
+      "notes": "ECC itself is a curve family; the concrete action follows the operation (ECDH vs ECDSA)."
+    },
+    {
+      "algorithm": "ECDSA",
+      "action": "REPLACE",
+      "quantum_driver": "Shor (HIGH)",
+      "suggested_target": "ML-DSA-65",
+      "hybrid_recommendation": "ECDSA + ML-DSA dual signatures for certificates during transition",
+      "effort_estimate": "Medium - signing keys, certificates and verifying purposes change.",
+      "priority_drivers": ["signature longevity", "certificate chain renewal"],
+      "notes": "For signed artifacts that must remain verifiable for decades, co-deploy hash-based signatures (LMS/XMSS) and timestamping."
+    },
+    {
+      "algorithm": "ECDH",
+      "action": "REPLACE",
+      "quantum_driver": "Shor (HIGH)",
+      "suggested_target": "ML-KEM-768",
+      "hybrid_recommendation": "X25519 + ML-KEM-768 (recommended) or P-256 + ML-KEM-768",
+      "effort_estimate": "Low to medium where the stack already supports hybrid TLS/QUIC; higher for custom key-management code.",
+      "priority_drivers": ["harvest_now_decrypt_later", "key_establishment LIFETIME"],
+      "notes": "The number-one HNDL surface for internet-exposed traffic; prioritise by data_lifetime_years."
+    },
+    {
+      "algorithm": "AES",
+      "action": "UPGRADE_PARAMETERS",
+      "quantum_driver": "Grover (LOW)",
+      "suggested_target": "AES-256-GCM (authenticated mode); AES-256 for long-lived data",
+      "hybrid_recommendation": "None needed; AES is quantum-resilient at 256-bit keys.",
+      "effort_estimate": "Low - key-size/mode change plus rotation.",
+      "priority_drivers": ["data lifetime beyond a quantum era at AES-128"],
+      "notes": "Upgrade AES-128 to 256 where data must outlive a quantum era; ensure AEAD mode (GCM) and proper IV handling."
+    },
+    {
+      "algorithm": "3DES",
+      "action": "REMOVE",
+      "quantum_driver": "Classical deprecation dominates (LOW quantum)",
+      "suggested_target": "AES-256-GCM",
+      "hybrid_recommendation": "None.",
+      "effort_estimate": "Medium - re-encrypt at rest and swap cipher configurations.",
+      "priority_drivers": ["broken classically", "NIST removal path"],
+      "notes": "Accept no new 3DES; retire existing uses promptly."
+    },
+    {
+      "algorithm": "DES",
+      "action": "REMOVE",
+      "quantum_driver": "Trivially breakable classically (NONE quantum)",
+      "suggested_target": "AES-256-GCM",
+      "hybrid_recommendation": "None.",
+      "effort_estimate": "Low to medium.",
+      "priority_drivers": ["obsolete since the 1990s"],
+      "notes": "Treat every DES finding as immediate."
+    },
+    {
+      "algorithm": "MD5",
+      "action": "REMOVE",
+      "quantum_driver": "Classical collision attacks (NONE quantum)",
+      "suggested_target": "SHA-256 (integrity), HMAC-SHA-256 (MAC), argon2id (password storage)",
+      "hybrid_recommendation": "None.",
+      "effort_estimate": "Medium - depends on the consumption pattern (certificates, signatures, digests).",
+      "priority_drivers": ["collision breakage", "certificate/signature forgery"],
+      "notes": "Never roll your own 'MD5 plus salt' for passwords; use a dedicated KDF."
+    },
+    {
+      "algorithm": "SHA-1",
+      "action": "REMOVE",
+      "quantum_driver": "Classical collision attacks (NONE quantum)",
+      "suggested_target": "SHA-256 (or SHA-384/512 by application)",
+      "hybrid_recommendation": "None.",
+      "effort_estimate": "Medium.",
+      "priority_drivers": ["collision breakage", "certificate/signature forgery"],
+      "notes": "Same posture as MD5 for collision-sensitive uses."
+    },
+    {
+      "algorithm": "SHA-256",
+      "action": "KEEP",
+      "quantum_driver": "Grover preimage (LOW; residual 2^128)",
+      "suggested_target": "None required",
+      "hybrid_recommendation": "None.",
+      "effort_estimate": "None.",
+      "priority_drivers": [],
+      "notes": "Stays on the ACTIVE list; pair with a proper KDF for password hashing."
+    },
+    {
+      "algorithm": "ML-KEM",
+      "action": "ADOPT",
+      "quantum_driver": "None",
+      "suggested_target": "ML-KEM-768 as the default; ML-KEM-1024 for higher assurance",
+      "hybrid_recommendation": "Use hybrid X25519+ML-KEM-768 while classical peers still require it.",
+      "effort_estimate": "Low to medium - provider support check plus key setup.",
+      "priority_drivers": [],
+      "notes": "Recommended default for new key establishment."
+    },
+    {
+      "algorithm": "ML-DSA",
+      "action": "ADOPT",
+      "quantum_driver": "None",
+      "suggested_target": "ML-DSA-65 as the default; ML-DSA-87 for higher assurance",
+      "hybrid_recommendation": "Use dual ECDSA/RSA + ML-DSA signatures while verifying parties still require the classical signature.",
+      "effort_estimate": "Low to medium - signing infrastructure and verification paths change; bandwidth grows.",
+      "priority_drivers": [],
+      "notes": "Recommended default for new signatures."
+    }
+  ],
+  "governance": {
+    "classification_source": "member_2",
+    "m6_constraints": "Member 6 may format, validate and render these recommendations. Member 6 must not invent actions, targets, trade-offs or effort estimates.",
+    "relationship_to_endpoints": "Member 5 emits Recommendation payloads (docs/api_contract.md 2.5) whose suggested_target and explanation should trace to this file.",
+    "validation": "Run: python -m unittest tests.test_crypto_knowledge -v"
+  }
+}

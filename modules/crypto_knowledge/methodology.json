@@ -1,0 +1,264 @@
+{
+  "schema_version": "1.0",
+  "document": "methodology.json",
+  "owner": "Member 2 - Cryptography + PQC Technical Authority",
+  "generated": "2026-09-02",
+  "purpose": "Deterministic, transparent risk and migration methodology for the canonical CryptoAsset contract (docs/api_contract.md). Defines Mosca-style reasoning, configurable planning horizon, risk-factor guidance, scoring rules, M3 operation mapping and the governance boundary for Members 5 and 6.",
+  "principles": [
+    "No quantum arrival dates are asserted or required anywhere in this project.",
+    "Timeline inputs are configurable parameters; outputs are recomputed when parameters change.",
+    "Mosca-style reasoning combines data lifetime (X), migration time (Y) and a planning horizon (Z).",
+    "Every risk factor, weight, threshold and template is defined here and in crypto_knowledge.json. Member 5 implements; it never invents.",
+    "Member 6 may format or validate this data; Member 6 does not invent classifications."
+  ],
+  "mosca_model": {
+    "model_name": "Mosca-style timeline exposure",
+    "equation_text": "X > Y + Z",
+    "variables": {
+      "X_data_lifetime_years": {
+        "source": "asset.data_lifetime_years",
+        "meaning": "How many years the protected data (or signature validity) must remain confidential or unforgeable."
+      },
+      "Y_migration_time_years": {
+        "source": "asset.migration_complexity mapped through configurable_parameters.migration_time_by_complexity",
+        "meaning": "Estimated years needed to complete a cryptographic migration for this asset."
+      },
+      "Z_planning_horizon_years": {
+        "source": "configurable (planning_horizon_years)",
+        "meaning": "Assumed years until a cryptanalytically relevant quantum computer threatens classical cryptography. This is an assumption, never a prediction."
+      }
+    },
+    "configurable_parameters": {
+      "planning_horizon_years": {
+        "default": 15,
+        "minimum": 5,
+        "maximum": 40,
+        "is_assumption": true,
+        "description": "Organisational planning horizon used in place of an unknowable quantum arrival date. It is a scenario knob, not a fact. Dashboards must display the horizon value in use."
+      },
+      "migration_time_by_complexity": {
+        "LOW": { "low": 0.5, "high": 1.5, "unit": "years" },
+        "MEDIUM": { "low": 1.5, "high": 3.0, "unit": "years" },
+        "HIGH": { "low": 3.0, "high": 5.0, "unit": "years" }
+      }
+    },
+    "urgency_rule": {
+      "description": "An asset is exposed on the Mosca timeline when its required data lifetime exceeds the sum of migration time and the planning horizon.",
+      "exposure_condition": "asset.data_lifetime_years > migration_time_years + planning_horizon_years",
+      "harvest_now_decrypt_later_precondition": "Applies primarily to asymmetric encryption and key establishment where an adversary can capture ciphertext or key-agreement transcripts today and decrypt them after the quantum transition.",
+      "no_dates_policy": "This model never supplies Z from observable fact; Z is always the configured planning horizon. Run sensitivity scenarios at multiple horizons rather than assuming a single forecast."
+    }
+  },
+  "risk_factors": [
+    {
+      "id": "quantum_vulnerable_algorithm",
+      "label": "Quantum-vulnerable algorithm",
+      "description": "The primitive is vulnerable to Shor's algorithm (asymmetric: RSA, ECC, ECDSA, ECDH).",
+      "evaluation": "Set true when crypto_knowledge.json algorithm entry has quantum_concern.shor_vulnerable == true.",
+      "applies_to": ["asymmetric_encryption", "key_establishment", "digital_signature"],
+      "score_delta": 0.0,
+      "score_delta_note": "Already reflected in base_risk_score; kept as a reporting flag."
+    },
+    {
+      "id": "broken_classical_crypto",
+      "label": "Classically broken crypto",
+      "description": "The primitive is already broken or catastrophically weak classically (MD5, SHA-1, DES, 3DES, RSA-1024).",
+      "evaluation": "Set true when legacy_status == BROKEN or DEPRECATED (or key_size rules flag a broken size).",
+      "applies_to": ["hashing", "message_authentication", "symmetric_encryption", "digital_signature"],
+      "score_delta": 0.0,
+      "score_delta_note": "Already reflected in base_risk_score; kept as a reporting flag."
+    },
+    {
+      "id": "harvest_now_decrypt_later",
+      "label": "Harvest-now, decrypt-later (HNDL)",
+      "description": "Data exposed to interception today that a future quantum computer could decrypt.",
+      "evaluation": "Set true when the algorithm is asymmetric (encryption or key establishment) AND data is captured in transit or at rest by an adversary, AND the Mosca exposure condition (X > Y + Z) holds or data_lifetime is long.",
+      "applies_to": ["asymmetric_encryption", "key_establishment"],
+      "score_delta": 1.5
+    },
+    {
+      "id": "data_lifetime_exceeds_horizon",
+      "label": "Data lifetime exceeds horizon",
+      "description": "Required confidentiality/integrity lifetime is longer than migration time plus planning horizon.",
+      "evaluation": "Set true when asset.data_lifetime_years > migration_time_years + planning_horizon_years.",
+      "applies_to": ["asymmetric_encryption", "key_establishment", "symmetric_encryption", "digital_signature"],
+      "score_delta": 1.5
+    },
+    {
+      "id": "internet_exposure",
+      "label": "Internet exposure",
+      "description": "The asset or its communications are reachable over the internet, increasing capture probability.",
+      "evaluation": "Set true when asset.internet_exposure == true.",
+      "applies_to": ["asymmetric_encryption", "key_establishment", "digital_signature"],
+      "score_delta": 0.5
+    },
+    {
+      "id": "signature_longevity",
+      "label": "Signature longevity / retroactive forgery",
+      "description": "Signatures must remain verifiable for a long period; a future Shor-enabled forgery would retroactively invalidate trust in past signatures.",
+      "evaluation": "Set true for digital_signature assets where signed artifacts must remain verifiable for many years (certificates, firmware, long-lived documents, code-signing).",
+      "applies_to": ["digital_signature"],
+      "score_delta": 1.0
+    }
+  ],
+  "risk_score_definition": {
+    "scale": "0..10 rounded to one decimal",
+    "formula": {
+      "step_1_base": "base_risk_score = crypto_knowledge.json[resolved_algorithm].base_risk_score (core or extended).",
+      "step_2_key_size": "adjusted = base_risk_score + key_size_adjustments[algorithm_family][key_size] (nearest defined size; unknown size adds 0.0).",
+      "step_3_factors": "risk_score = adjusted + sum(risk_factors[factor].score_delta for each true factor).",
+      "step_4_clamp": "clamp(risk_score, 0.0, 10.0); round to one decimal."
+    },
+    "algorithm_resolution": {
+      "order": ["exact match on asset.algorithm", "alias match via crypto_knowledge.json aliases", "extended_algorithms lookup", "fallback_rules by operation (review required)"],
+      "key_size_source": "asset.key_size; families with key_size_adjustments: RSA, ECC/ECDSA/ECDH, AES."
+    },
+    "key_size_adjustments": {
+      "RSA": { "512": 3.5, "768": 3.0, "1024": 2.0, "1536": 1.0, "2048": 0.0, "3072": 0.0, "4096": 0.0 },
+      "ECC": { "160": 2.0, "192": 1.5, "224": 0.0, "256": 0.0, "384": 0.0, "521": 0.0 },
+      "AES": { "128": 1.0, "192": 0.0, "256": 0.0 }
+    }
+  },
+  "risk_level_thresholds": {
+    "LOW": { "min": 0.0, "max": 3.9 },
+    "MEDIUM": { "min": 4.0, "max": 6.9 },
+    "HIGH": { "min": 7.0, "max": 8.9 },
+    "CRITICAL": { "min": 9.0, "max": 10.0 }
+  },
+  "migration_priority_rules": {
+    "base_mapping": {
+      "LOW": "LOW",
+      "MEDIUM": "MEDIUM",
+      "HIGH": "HIGH",
+      "CRITICAL": "URGENT"
+    },
+    "promotions": [
+      {
+        "condition": "harvest_now_decrypt_later == true OR data_lifetime_exceeds_horizon == true",
+        "effect": "promote one tier (e.g. HIGH -> URGENT), capped at URGENT"
+      },
+      {
+        "condition": "broken_classical_crypto == true",
+        "effect": "priority is at least HIGH, capped at URGENT"
+      }
+    ]
+  },
+  "mosca_assessment_templates": {
+    "broken_classical": "{algorithm} is classically broken ({detail}); replace immediately - quantum is not the primary driver.",
+    "hndl": "{algorithm} key establishment/encryption exposes harvest-now-decrypt-later risk; data lifetime X={x} exceeds migration time Y={y} + planning horizon Z={z} under the configured horizon.",
+    "transitional": "{algorithm} is classically sound but Shor-vulnerable; schedule post-quantum migration within the planning horizon.",
+    "signature_longevity": "{algorithm} digital signatures must remain verifiable for {x} years; post-quantum forgery is retroactive - prefer ML-DSA or hash-based signatures for long-lived signed artifacts.",
+    "pqc": "{algorithm} is a NIST-standardised post-quantum primitive; no quantum-driven migration required.",
+    "keep": "{algorithm} is quantum-resilient at current parameters; no quantum-driven change required."
+  },
+  "m3_operation_mapping": {
+    "description": "Maps the operation strings the source scanner emits (Member 3, detectors/*.py) onto the canonical primitives defined in crypto_knowledge.json. Member 5 resolves an asset's effective primitive jointly from (algorithm, operation).",
+    "mapping": {
+      "encryption": { "canonical": "asymmetric_encryption", "families": ["symmetric", "asymmetric"], "family_hint": "resolved from algorithm id; default symmetric", "note": "Java Cipher and JS createCipher are used for both symmetric and asymmetric; classify by algorithm." },
+      "decryption": { "canonical": "symmetric_encryption", "families": ["symmetric", "asymmetric"], "family_hint": "resolved from algorithm id; default symmetric", "note": "Decryption companion of 'encryption'." },
+      "symmetric_encryption": { "canonical": "symmetric_encryption", "families": ["symmetric"], "family_hint": "symmetric", "note": "Python Fernet/other explicit symmetric usage." },
+      "hashing": { "canonical": "hashing", "families": ["hash"], "family_hint": "hash", "note": "Digest usage (MessageDigest, hashlib, createHash, subtle.digest)." },
+      "mac": { "canonical": "message_authentication", "families": ["hash"], "family_hint": "hash", "note": "HMAC constructions (createHmac, HmacSHA256, hmac.new)." },
+      "signature": { "canonical": "digital_signature", "families": ["asymmetric"], "family_hint": "asymmetric", "note": "Signature.createSign/verify, Signature.getInstance, subtle.sign/verify." },
+      "key_agreement": { "canonical": "key_establishment", "families": ["asymmetric"], "family_hint": "asymmetric", "note": "KeyAgreement.getInstance, createECDH." },
+      "keyexchange": { "canonical": "key_establishment", "families": ["asymmetric"], "family_hint": "asymmetric", "note": "Legacy vocabulary alias used in early API-contract examples; normalise to key_establishment." },
+      "key_generation": { "canonical": "key_generation", "families": [], "family_hint": "depends on algorithm", "note": "Context finding." },
+      "key_derivation": { "canonical": "key_derivation", "families": ["hash"], "family_hint": "hash", "note": "pbkdf2, PBKDF2WithHmacSHA256, scrypt, argon2, deriveBits/deriveKey." },
+      "randomness": { "canonical": "randomness", "families": [], "family_hint": "none", "note": "SecureRandom, os.urandom, secrets, randomBytes, subtle.generateKey non-key uses." },
+      "keystore": { "canonical": "key_management", "families": [], "family_hint": "none", "note": "KeyStore access." },
+      "key_import": { "canonical": "key_management", "families": [], "family_hint": "none", "note": "subtle.importKey." },
+      "crypto_import": { "canonical": "key_management", "families": [], "family_hint": "none", "note": "Bare crypto library import; weak signal." }
+    }
+  },
+  "review": {
+    "m3_mapping_review": {
+      "summary": "Review of Member 3 source scanner output against this knowledge base and the canonical contract.",
+      "findings": [
+        {
+          "id": "M3-01",
+          "severity": "MEDIUM",
+          "findings": "Operation vocabulary is inconsistent across detectors: Java emits 'encryption', Python emits 'symmetric_encryption'; key agreement is 'key_agreement' while the API contract example used 'keyexchange'; hashing is 'hashing' in code but 'hash' in contract examples.",
+          "remediation": "Normalise through m3_operation_mapping in this file. Canonical primitives live in crypto_knowledge.json.operation. Update the M3 detectors to emit canonical tokens or rely on this mapping."
+        },
+        {
+          "id": "M3-02",
+          "severity": "LOW",
+          "findings": "3DES is emitted as 'DESede' (java detector) and 3DES/DES-EDE3 elsewhere; resolved to the 3DES entry via aliases in crypto_knowledge.json.",
+          "remediation": "No change required; aliases already cover DESede, 3DES, DES-EDE3, DESEDE."
+        },
+        {
+          "id": "M3-03",
+          "severity": "MEDIUM",
+          "findings": "No post-quantum detection: ML-KEM and ML-DSA are not in any detector's known-algorithm list, so PQC-positive codebases are invisible.",
+          "remediation": "Add ML-KEM-{512,768,1024} and ML-DSA-{44,65,87} to the Java/JS/Python known-algorithm lists and library docs."
+        },
+        {
+          "id": "M3-04",
+          "severity": "MEDIUM",
+          "findings": "key_size is left null by detectors (java.py never extracts sizes; javascript.py sometimes encodes size in the algorithm string, e.g. aes-256-gcm). Key-size adjustments in this methodology cannot apply without key_size or an embedded size.",
+          "remediation": "Extract numeric sizes from algorithm strings (e.g. allow AES/2048 patterns) and set asset.key_size. For encoded forms, the alias table captures the default key size in the notes."
+        },
+        {
+          "id": "M3-05",
+          "severity": "LOW",
+          "findings": "Bare 'EC' / curve names (secp256r1, P-256) surface without a primitive. Java Signature.getInstance(\"SHA256withECDSA\") is already resolved as ECDSA, but KeyAgreement EC findings need operation context.",
+          "remediation": "Resolve 'EC' and curve names through the ECC entry; the primitive is decided by operation (KeyAgreement -> ECDH, Signature -> ECDSA). Documented in crypto_knowledge.json ECC notes."
+        },
+        {
+          "id": "M3-06",
+          "severity": "LOW",
+          "findings": "algorithm may be null (bare imports, os.urandom, heuristics). The knowledge base provides fallback_rules keyed by operation so Member 5 can still score deterministically with review_required true.",
+          "remediation": "No change required; risk engine must honour review_required and surface these for human confirmation."
+        },
+        {
+          "id": "M3-07",
+          "severity": "LOW",
+          "findings": "Java Cipher.getInstance lines are deduplicated by 'keep longest api' heuristic (java.py lines 101-106); a single line can produce only one finding, potentially dropping a second distinct primitive.",
+          "remediation": "Document in scanner README; accept as a known limitation or emit one finding per distinct algorithm on the line."
+        }
+      ]
+    },
+    "m5_methodology_review": {
+      "summary": "Member 5 (risk engine) does not yet exist as a module in this repository. This section reviews the persistence contract the risk engine must implement and the risk fields it will populate.",
+      "findings": [
+        {
+          "id": "M5-01",
+          "severity": "INFO",
+          "findings": "The canonical CryptoAsset schema reserves risk_score, risk_level, migration_priority, mosca_assessment and recommendation as nullable fields, populated by the risk engine; RiskAssessment carries an optional factors dict.",
+          "remediation": "Member 5 must compute these fields using this file (scores, thresholds, priority promotions, templates) and crypto_knowledge.json (base scores, resolution). The factor keys emitted in RiskAssessment.factors must match risk_factors[].id."
+        },
+        {
+          "id": "M5-02",
+          "severity": "HIGH",
+          "findings": "If Member 5 hard-codes its own weights, thresholds or algorithm table, results diverge from this methodology and Member 6 cannot render a consistent view.",
+          "remediation": "Load methodology.json, crypto_knowledge.json and recommendations.json at startup; treat them as read-only reference data. Unit-test score determinism against the fixtures in tests/test_crypto_knowledge.py."
+        },
+        {
+          "id": "M5-03",
+          "severity": "MEDIUM",
+          "findings": "The 'risk_score' float is unbounded in the Risk schema (ge 0, le 10), matching the 0..10 scale here.",
+          "remediation": "Keep the clamp in risk_score_definition.step_4_clamp; do not widen the range."
+        },
+        {
+          "id": "M5-04",
+          "severity": "MEDIUM",
+          "findings": "Mosca assessment is a free-form string in the contract, so its content is at Member 5's discretion.",
+          "remediation": "Prefer mosca_assessment_templates so output stays consistent; include the planning_horizon_years value used in the narrative so the assumption is transparent."
+        },
+        {
+          "id": "M5-05",
+          "severity": "INFO",
+          "findings": "business_criticality is a Member 3 input and is intentionally OUTSIDE the risk-score formula, keeping crypto-risk signal independent of business labelling.",
+          "remediation": "Keep business_criticality as a visible column; it may inform reporting order but must not silently change risk_score."
+        }
+      ]
+    }
+  },
+  "governance": {
+    "classification_source": "member_2",
+    "m6_constraints": "Member 6 may format, validate and render this data and the other Member 2 JSON files. Member 6 must not invent algorithms, families, legacy statuses, risk factors, weights, thresholds or priority tiers. Any UI classification label must trace to this file or crypto_knowledge.json.",
+    "configurable_knobs": ["planning_horizon_years", "migration_time_by_complexity", "key_size_adjustments", "risk_factors[].score_delta", "risk_level_thresholds"],
+    "sensitivity_guidance": "Run exposure at multiple planning horizons (e.g. default, min, max) and surface HNDL assets whose data_lifetime_years is within the horizon buffer.",
+    "validation": "Run: python -m unittest tests.test_crypto_knowledge -v"
+  }
+}
