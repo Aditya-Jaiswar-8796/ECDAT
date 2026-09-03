@@ -17,6 +17,7 @@ from app.db import models
 from app.db.database import get_db
 from app.schemas.scan import Scan, ScanCreate
 from app.services import scan_service
+from app.services import pipeline_service
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -84,6 +85,11 @@ def upload_bundle(
         ) from exc
 
     scan_service.set_status(db, scan, "SCANNING")
+
+    # Kick off the async analysis pipeline (extract + scan + risk) in a
+    # background thread so the upload responds immediately. The frontend
+    # watches status via its existing polling.
+    pipeline_service._start_pipeline(scan_id)
     return scan
 
 
@@ -97,6 +103,17 @@ def list_scans(db: Session = Depends(get_db)):
 def get_scan(scan_id: str, db: Session = Depends(get_db)):
     """Get a single scan by id."""
     return _require_scan(db, scan_id)
+
+
+@router.delete("", status_code=200)
+def clear_all_scans(db: Session = Depends(get_db)):
+    """Delete every scan, its findings and staged uploads.
+
+    Returns the count of removed scans. Used by the dashboard's
+    'Clear all scans' action.
+    """
+    removed = scan_service.clear_scans(db)
+    return {"deleted": removed}
 
 
 @router.get("/{scan_id}/summary")

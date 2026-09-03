@@ -67,14 +67,18 @@ function usePromise<T>(fetcher: () => Promise<T>, deps: unknown[], enabled = tru
 }
 
 /** All scans, newest first. */
-export function useScans(refreshMs = 0): AsyncState<Scan[]> {
+export function useScans(
+  refreshMs = 0,
+): AsyncState<Scan[]> & { refresh: () => void } {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (refreshMs <= 0) return;
     const id = setInterval(() => setTick((t) => t + 1), refreshMs);
     return () => clearInterval(id);
   }, [refreshMs]);
-  return usePromise(() => api.listScans(), [tick]);
+  const state = usePromise(() => api.listScans(), [tick]);
+  const refresh = useCallback(() => setTick((t) => t + 1), []);
+  return { ...state, refresh };
 }
 
 /** Single scan + summary + risk-derived stage completion, polled while running. */
@@ -117,6 +121,18 @@ export function useScan(
         });
       } catch (err: unknown) {
         if (cancelled) return;
+        // A 404 means the scan was deleted (e.g. "Clear all scans" ran while a
+        // poll was in flight). Treat it as "nothing to watch" rather than a hard
+        // error so the UI doesn't spam the console with 404s for a stale id.
+        if (err instanceof Error && err.message.includes("404")) {
+          setState({
+            data: null,
+            error: null,
+            loading: false,
+            isPending: false,
+          });
+          return;
+        }
         setState({
           data: null,
           error: err instanceof Error ? err.message : String(err),
@@ -152,7 +168,7 @@ export function useAssets(scanId?: string | null): AsyncState<CryptoAsset[]> {
 /** Full risk assessment summary for a scan. */
 export function useRisks(scanId?: string | null): AsyncState<RiskAssessmentSummary> {
   return usePromise(
-    () => api.getScanRisks(scanId ?? ""),
+    () => api.getScanRisks(scanId!),
     [scanId ?? null],
     Boolean(scanId),
   );
@@ -163,7 +179,7 @@ export function useRecommendations(
   scanId?: string | null,
 ): AsyncState<Recommendation[]> {
   return usePromise(
-    () => api.getScanRecommendations(scanId ?? ""),
+    () => api.getScanRecommendations(scanId!),
     [scanId ?? null],
     Boolean(scanId),
   );
@@ -172,7 +188,7 @@ export function useRecommendations(
 /** CBOM (dependencies + certificates) for a scan. */
 export function useCBOM(scanId?: string | null): AsyncState<CBOM> {
   return usePromise(
-    () => api.getScanCBOM(scanId ?? ""),
+    () => api.getScanCBOM(scanId!),
     [scanId ?? null],
     Boolean(scanId),
   );
@@ -181,7 +197,7 @@ export function useCBOM(scanId?: string | null): AsyncState<CBOM> {
 /** Full certificate inventory for a scan. */
 export function useCertificates(scanId?: string | null): AsyncState<Certificate[]> {
   return usePromise(
-    () => api.listScanCertificates(scanId ?? ""),
+    () => api.listScanCertificates(scanId!),
     [scanId ?? null],
     Boolean(scanId),
   );
@@ -190,7 +206,7 @@ export function useCertificates(scanId?: string | null): AsyncState<Certificate[
 /** Full dependency inventory for a scan. */
 export function useDependencies(scanId?: string | null): AsyncState<Dependency[]> {
   return usePromise(
-    () => api.listScanDependencies(scanId ?? ""),
+    () => api.listScanDependencies(scanId!),
     [scanId ?? null],
     Boolean(scanId),
   );
@@ -220,12 +236,29 @@ export function useStoredScan() {
 /**
  * Page-level scan selection: combines an explicit choice (URL or user click)
  * with the persisted preference, exposing the effective scan + a setter.
- * `selectedScan` is derived from two states at render time (no effect needed).
+ * `selectedScan` is derived at render time (no effect needed).
+ *
+ * The persisted/chosen id is validated against the current `scanList`: if it no
+ * longer exists (e.g. a scan was deleted via "Clear all scans" but its id is
+ * still in localStorage), we fall back to the newest existing scan instead of
+ * returning a stale id that would produce API 404s on every page.
  */
-export function useScanSelection(initialId: string | null) {
+export function useScanSelection(
+  initialId: string | null,
+  scanList: Scan[] | null | undefined = null,
+) {
   const { preferred, select } = useStoredScan();
   const [chosen, setChosen] = useState<string | null>(initialId);
-  const selectedScan = chosen ?? preferred;
+
+  const resolved = chosen ?? preferred;
+  const valid =
+    scanList && scanList.length > 0 && scanList.some((s) => s.scan_id === resolved)
+      ? resolved
+      : scanList && scanList.length > 0
+        ? (scanList[0]?.scan_id ?? null)
+        : resolved;
+
+  const selectedScan = valid;
   const onSelect = useCallback(
     (id: string) => {
       setChosen(id);

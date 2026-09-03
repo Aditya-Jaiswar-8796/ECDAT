@@ -66,6 +66,9 @@ def detect(file_path: str, lines: List[str]) -> List[Dict[str, Any]]:
     language = detect_language(file_path) or "javascript"
 
     findings: List[Dict[str, Any]] = []
+    # Tracks which source lines already produced a finding so the O(findings x
+    # lines) scan in the old code is replaced with O(1) membership checks.
+    reported_lines: set[int] = set()
 
     for line_no, raw_line in enumerate(lines, start=1):
         line = raw_line.strip()
@@ -96,6 +99,7 @@ def detect(file_path: str, lines: List[str]) -> List[Dict[str, Any]]:
                     confidence=confidence,
                 )
             )
+            reported_lines.add(line_no)
             break
 
         for method, operation in WEB_CRYPTO_SUBTLE_FUNCS.items():
@@ -121,9 +125,10 @@ def detect(file_path: str, lines: List[str]) -> List[Dict[str, Any]]:
                     confidence=confidence,
                 )
             )
+            reported_lines.add(line_no)
             break
 
-        if not any(f["line_number"] == line_no for f in findings):
+        if line_no not in reported_lines:
             if re.search(r"(require\(['\"]crypto['\"]\)|from ['\"]crypto['\"]|node:crypto)", line):
                 findings.append(
                     make_finding(
@@ -138,5 +143,6 @@ def detect(file_path: str, lines: List[str]) -> List[Dict[str, Any]]:
                         confidence="LOW",
                     )
                 )
+                reported_lines.add(line_no)
 
     return findings

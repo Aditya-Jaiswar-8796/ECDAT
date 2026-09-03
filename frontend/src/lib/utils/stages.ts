@@ -54,6 +54,12 @@ export function deriveStages(
   const recommendationCount = summary?.recommendation_count ?? 0;
   const assessedCount = riskSummary?.assessed_count ?? 0;
 
+  // The backend only sets RISK_ASSESSED after the risk engine has assessed
+  // every asset AND recommendations have been ingested, so the status alone is
+  // authoritative for the tail stages even when per-scan summary/risk counters
+  // are not available (e.g. on the scan list, which passes no summary).
+  const fullyAssessed = scan.status === "RISK_ASSESSED";
+
   // Each boolean means "this stage has completed" per the API data.
   const flags: Record<StageKey, boolean> = {
     // Upload done once the backend moved past RECEIVED (bundle uploaded).
@@ -65,11 +71,14 @@ export function deriveStages(
       assetCount > 0 &&
       (scan.status === "SCAN_COMPLETE" || scan.status === "RISK_ASSESSED"),
     // Risk Assessment done when the risk engine assessed at least one asset.
-    riskAssessment: assessedCount > 0 || scan.status === "RISK_ASSESSED",
-    // Recommendation done when recommendations were ingested.
-    recommendation: recommendationCount > 0,
+    riskAssessment:
+      assessedCount > 0 || scan.status === "RISK_ASSESSED",
+    // Recommendation done when recommendations were ingested, or the scan is
+    // fully assessed (which implies existing recommendations).
+    recommendation: recommendationCount > 0 || fullyAssessed,
     // Complete only when risk assessed and recommendations exist.
-    complete: scan.status === "RISK_ASSESSED" && recommendationCount > 0,
+    complete:
+      (scan.status === "RISK_ASSESSED" && recommendationCount > 0) || fullyAssessed,
   };
 
   const order: StageKey[] = [

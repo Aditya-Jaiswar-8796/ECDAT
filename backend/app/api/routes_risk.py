@@ -164,6 +164,7 @@ def scan_recommendations(scan_id: str, db: Session = Depends(get_db)):
     _require_scan(db, scan_id)
     return [
         {
+            "scan_id": scan_id,
             "asset_id": r.asset_id,
             "recommendation": r.recommendation,
             "explanation": r.explanation,

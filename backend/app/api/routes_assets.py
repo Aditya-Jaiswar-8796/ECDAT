@@ -74,7 +74,7 @@ def get_asset(asset_pk: int, db: Session = Depends(get_db)):
 @router.post("/ingest", response_model=list[CryptoAsset], status_code=201)
 def ingest_assets(
     scan_id: str = Query(..., description="Target scan for these assets"),
-    payload: list[CryptoAssetCreate] = None,
+    payload: list[CryptoAssetCreate] = ...,
     db: Session = Depends(get_db),
 ):
     """Bulk-ingest crypto assets for a scan (Member 3 integration endpoint).
@@ -83,7 +83,7 @@ def ingest_assets(
     payload stays clean (it has no relation fields). Persisting replaces any
     previously stored assets for the same scan (idempotent re-scans).
     """
-    if payload is None or not payload:
+    if not payload:
         raise HTTPException(status_code=400, detail="Empty asset payload")
 
     # Ensure the target scan actually exists before writing findings.

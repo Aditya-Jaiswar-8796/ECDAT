@@ -41,9 +41,9 @@ export default function RiskPage() {
 
 function RiskContent() {
   const searchParams = useSearchParams();
-  const { selectedScan, onSelect } = useScanSelection(searchParams.get("scan"));
-
   const scans = useScans();
+  const { selectedScan, onSelect } = useScanSelection(searchParams.get("scan"), scans.data);
+
   const risks = useRisks(selectedScan);
 
   const assessments = useMemo(() => risks.data?.assessments ?? [], [risks.data]);

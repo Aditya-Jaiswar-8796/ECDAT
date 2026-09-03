@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from .base import make_finding
 from ..evidence import build_snippet, clean_algorithm_text, extract_arguments
 
+
 API_OPERATIONS: Dict[str, str] = {
     "Cipher.getInstance": ("javax.crypto", "encryption"),
     "Cipher": ("javax.crypto", "encryption"),
@@ -56,6 +57,9 @@ def _match_known_algorithm(text: str) -> Optional[str]:
 
 def detect(file_path: str, lines: List[str]) -> List[Dict[str, Any]]:
     findings: List[Dict[str, Any]] = []
+    # Remembers which APIs were already reported on the current line so we
+    # don't emit duplicate findings or scan them repeatedly.
+    line_seen: set[str] = set()
 
     for line_no, raw_line in enumerate(lines, start=1):
         line = raw_line.strip()
@@ -63,8 +67,9 @@ def detect(file_path: str, lines: List[str]) -> List[Dict[str, Any]]:
         if not line or line.lstrip().startswith("//") or line.startswith("*"):
             continue
 
+        line_findings: List[Dict[str, Any]] = []
         for pattern, (library, operation) in API_OPERATIONS.items():
-            if pattern not in line:
+            if pattern not in line or pattern in line_seen:
                 continue
 
             algorithm: Optional[str] = None
@@ -85,7 +90,7 @@ def detect(file_path: str, lines: List[str]) -> List[Dict[str, Any]]:
 
             evidence_block = build_snippet(lines, line_no)
 
-            findings.append(
+            line_findings.append(
                 make_finding(
                     algorithm=algorithm,
                     operation=operation,
@@ -98,11 +103,11 @@ def detect(file_path: str, lines: List[str]) -> List[Dict[str, Any]]:
                     confidence=confidence,
                 )
             )
-        if any(f["line_number"] == line_no for f in findings):
-            line_findings = [f for f in findings if f["line_number"] == line_no]
+            line_seen.add(pattern)
+
+        if line_findings:
+            # Keep the most specific (longest) API match for this line.
             keep = max(line_findings, key=lambda f: len(f["api"]))
-            for f in list(line_findings):
-                if f is not keep:
-                    findings.remove(f)
+            findings.append(keep)
 
     return findings

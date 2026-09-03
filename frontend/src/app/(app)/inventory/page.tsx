@@ -34,10 +34,10 @@ export default function InventoryPage() {
 function InventoryContent() {
   const searchParams = useSearchParams();
   const paramScan = searchParams.get("scan");
-  const { selectedScan, onSelect } = useScanSelection(paramScan);
+  const scans = useScans();
+  const { selectedScan, onSelect } = useScanSelection(paramScan, scans.data);
   const [query, setQuery] = useState("");
 
-  const scans = useScans();
   const assets = useAssets(selectedScan);
 
   const filtered = useMemo(() => {

@@ -64,10 +64,10 @@ export default function CBOMPage() {
 
 function CBOMContent() {
   const searchParams = useSearchParams();
-  const { selectedScan, onSelect } = useScanSelection(searchParams.get("scan"));
   const [tab, setTab] = useState<Tab>("dependencies");
 
   const scans = useScans();
+  const { selectedScan, onSelect } = useScanSelection(searchParams.get("scan"), scans.data);
   const cbom = useCBOM(selectedScan);
   const dependencies = useDependencies(selectedScan);
   const certificates = useCertificates(selectedScan);
@@ -244,7 +244,7 @@ function CBOMContent() {
             <DataTable
               columns={depColumns}
               rows={activeDeps}
-              rowKey={(d) => d.name}
+              rowKey={(d) => `${d.name}@${d.version ?? "?"}-${d.ecosystem ?? "?"}`}
               emptyTitle="No dependencies catalogued"
               emptyDescription="Dependency inventory for this scan is empty."
             />

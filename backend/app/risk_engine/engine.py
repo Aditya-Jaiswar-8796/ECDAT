@@ -57,7 +57,12 @@ def resolve_lifetime(
     (planning_horizon <= 0 is already rejected by the config).
     """
     if data_lifetime_years is not None:
-        return data_lifetime_years
+        # Guard against string-typed inputs (e.g. from a scanner or CSV ingest)
+        # that would otherwise blow up the lifetime / horizon division below.
+        try:
+            return int(data_lifetime_years)
+        except (TypeError, ValueError):
+            return None
     if default_lifetime is not None:
         return default_lifetime
     # Conservative default: assume the data must survive the full horizon.
@@ -78,10 +83,20 @@ def lifetime_score(
     lifetime = resolve_lifetime(
         data_lifetime_years, default_lifetime, planning_horizon_years
     )
+    # Fully defensive int coercion: the division below must never see strings,
+    # regardless of whether the lifetime or horizon arrived as text.
+    try:
+        lifetime = int(lifetime) if lifetime is not None else None
+    except (TypeError, ValueError):
+        lifetime = None
+    try:
+        horizon = int(planning_horizon_years)
+    except (TypeError, ValueError):
+        horizon = 0
     if lifetime is None or lifetime <= 0:
         return 0.0
     # Cap at the horizon so the ratio stays in [0, 1].
-    horizon = max(1, planning_horizon_years)
+    horizon = max(1, horizon)
     return max(0.0, min(100.0, (lifetime / horizon) * 100.0))
 
 

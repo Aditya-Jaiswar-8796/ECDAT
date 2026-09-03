@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 class Recommendation(BaseModel):
     """A single remediation / migration recommendation."""
 
+    scan_id: Optional[str] = None
     asset_id: Optional[str] = None
     recommendation: str
     explanation: Optional[str] = None

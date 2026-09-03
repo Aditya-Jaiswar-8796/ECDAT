@@ -30,11 +30,19 @@ export default function ScansPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [clearMessage, setClearMessage] = useState<string | null>(null);
 
   // Scans list refresh; the detail watcher derives a valid scan id from the
   // explicit selection or falls back to the newest scan (render-time only).
   const scans = useScans(5000);
-  const activeScanId = selectedScanId ?? scans.data?.[0]?.scan_id ?? null;
+  const knownIds = new Set((scans.data ?? []).map((s) => s.scan_id));
+  // If the previously selected scan is no longer in the list (e.g. it was
+  // deleted by "Clear all scans"), drop it so we don't keep polling a 404.
+  const activeScanId =
+    selectedScanId !== null && knownIds.has(selectedScanId)
+      ? selectedScanId
+      : (scans.data?.[0]?.scan_id ?? null);
   const detail = useScan(activeScanId);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -78,6 +86,29 @@ export default function ScansPage() {
   };
 
   const waitingUpload = selectedScanId !== null && detail.data?.scan.status === "RECEIVED";
+
+  const handleClearAll = async () => {
+    if (clearing) return;
+    const ok = window.confirm(
+      "Delete ALL past scans and their findings? This cannot be undone.",
+    );
+    if (!ok) return;
+    setClearing(true);
+    setClearMessage(null);
+    try {
+      const res = await api.clearScans();
+      setSelectedScanId(null);
+      setUploadStatus(null);
+      setClearMessage(`Deleted ${res.deleted} scan${res.deleted === 1 ? "" : "s"}.`);
+      scans.refresh();
+    } catch (err: unknown) {
+      setClearMessage(
+        err instanceof ApiError ? `Clear failed: ${err.detail}` : `Clear failed: ${String(err)}`,
+      );
+    } finally {
+      setClearing(false);
+    }
+  };
 
   return (
     <div>
@@ -131,6 +162,32 @@ export default function ScansPage() {
 
         {/* Scan list with upload + stages */}
         <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-zinc-400">
+              Scans ({scans.data?.length ?? 0})
+            </h2>
+            <button
+              type="button"
+              onClick={() => void handleClearAll()}
+              disabled={clearing || !scans.data || scans.data.length === 0}
+              className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/10 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {clearing ? "Clearing…" : "Clear all scans"}
+            </button>
+          </div>
+          {clearMessage && (
+            <p
+              className={`text-xs ${
+                clearMessage.startsWith("Deleted")
+                  ? "text-green-400"
+                  : clearMessage.startsWith("Clear failed")
+                    ? "text-red-400"
+                    : "text-zinc-400"
+              }`}
+            >
+              {clearMessage}
+            </p>
+          )}
           {scans.loading && !scans.data && <Spinner label="Loading scans…" />}
           {scans.error && (
             <p className="text-sm text-red-400">Failed to load scans: {scans.error}</p>

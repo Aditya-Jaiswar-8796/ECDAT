@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field
 ConfidenceLevel = Literal["LOW", "MEDIUM", "HIGH"]
 CriticalityLevel = Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 MigrationComplexity = Literal["LOW", "MEDIUM", "HIGH"]
+RiskLevel = Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+MigrationPriority = Literal["LOW", "MEDIUM", "HIGH", "URGENT"]
 
 
 class CryptoAssetBase(BaseModel):
@@ -43,8 +45,8 @@ class CryptoAssetBase(BaseModel):
 
     # Fields populated later by the risk engine (Member 5). Null until then.
     risk_score: Optional[float] = None
-    risk_level: Optional[str] = None
-    migration_priority: Optional[str] = None
+    risk_level: Optional[RiskLevel] = None
+    migration_priority: Optional[MigrationPriority] = None
     mosca_assessment: Optional[str] = None
     recommendation: Optional[str] = None
 
@@ -74,8 +76,8 @@ class CryptoAssetUpdate(BaseModel):
     internet_exposure: Optional[bool] = None
     migration_complexity: Optional[MigrationComplexity] = None
     risk_score: Optional[float] = None
-    risk_level: Optional[str] = None
-    migration_priority: Optional[str] = None
+    risk_level: Optional[RiskLevel] = None
+    migration_priority: Optional[MigrationPriority] = None
     mosca_assessment: Optional[str] = None
     recommendation: Optional[str] = None
 
@@ -90,5 +92,8 @@ class CryptoAsset(CryptoAssetBase):
 
     # DB primary key carries the same semantic as the assetidentifier.
     pk: Optional[int] = Field(default=None, exclude=True)
+
+    # The scan this asset belongs to — injected by _to_response() in routes.
+    scan_id: Optional[str] = None
 
     model_config = {"from_attributes": True}

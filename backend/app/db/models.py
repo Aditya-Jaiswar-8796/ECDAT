@@ -19,6 +19,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.hybrid import hybrid_property
 
 from app.db.database import Base
 
@@ -58,6 +59,18 @@ class Scan(Base):
         "RecommendationModel", back_populates="scan",
         cascade="all, delete-orphan"
     )
+
+    @hybrid_property
+    def asset_count(self) -> int:
+        return len(self.assets) if self.assets else 0
+
+    @hybrid_property
+    def dependency_count(self) -> int:
+        return len(self.dependencies) if self.dependencies else 0
+
+    @hybrid_property
+    def certificate_count(self) -> int:
+        return len(self.certificates) if self.certificates else 0
 
 
 class CryptoAssetModel(Base):

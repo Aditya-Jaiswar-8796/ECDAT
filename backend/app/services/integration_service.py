@@ -106,6 +106,10 @@ def ingest_recommendations(
     ).delete()
 
     for r in recommendations:
-        db.add(models.RecommendationModel(scan_id=scan_id, **r.model_dump()))
+        payload = r.model_dump()
+        # scan_id is owned by the DB row, not the schema value — drop it from
+        # the dump so we don't pass it twice when setting it explicitly above.
+        payload.pop("scan_id", None)
+        db.add(models.RecommendationModel(scan_id=scan_id, **payload))
     db.commit()
     return len(recommendations)

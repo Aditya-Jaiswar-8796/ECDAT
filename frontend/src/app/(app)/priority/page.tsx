@@ -50,9 +50,9 @@ export default function PriorityPage() {
 
 function PriorityContent() {
   const searchParams = useSearchParams();
-  const { selectedScan, onSelect } = useScanSelection(searchParams.get("scan"));
-
   const scans = useScans();
+  const { selectedScan, onSelect } = useScanSelection(searchParams.get("scan"), scans.data);
+
   const assets = useAssets(selectedScan);
   const recommendations = useRecommendations(selectedScan);
 

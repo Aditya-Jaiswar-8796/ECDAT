@@ -9,6 +9,7 @@ the uploaded bundle and records lifecycle transitions.
 from __future__ import annotations
 
 import os
+import shutil
 import uuid
 import zipfile
 from pathlib import Path
@@ -20,7 +21,20 @@ from app.db import models
 from app.schemas.scan import ScanCreate
 
 # Root under which uploaded bundles are extracted/staged.
-UPLOAD_ROOT = Path(os.getenv("ECDAT_UPLOAD_DIR", "uploads")).resolve()
+#
+# IMPORTANT: this lives OUTSIDE the repo/backend working tree on purpose. The
+# dev server runs `uvicorn --reload`, which watches the CWD and reloads on any
+# file change. Uploaded archives are extracted here when the pipeline runs; if
+# this directory were inside the watched tree, uvicorn would detect those
+# writes, reload the app mid-pipeline and kill the background worker thread —
+# orphaning the scan at SCAN_COMPLETE. Keeping it a sibling of the repo means
+# upload/extract writes never participate in the reload watch.
+_UPLOAD_ENV = os.getenv("ECDAT_UPLOAD_DIR")
+if _UPLOAD_ENV:
+    UPLOAD_ROOT = Path(_UPLOAD_ENV).resolve()
+else:
+    # One level above the repo root (CWD is usually backend/ or repo root).
+    UPLOAD_ROOT = (Path(__file__).resolve().parents[3] / ".." / "ecdat_uploads").resolve()
 
 # Allowed archive extensions to guard the upload endpoint.
 ALLOWED_ARCHIVE_EXTS = {".zip"}
@@ -129,6 +143,43 @@ def safe_extract(archive: zipfile.ZipFile, destination: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         with archive.open(member) as src, target.open("wb") as dst:
             dst.write(src.read())
+
+
+def delete_scan(db: Session, scan_id: str) -> bool:
+    """Delete a single scan and all its related rows + staged upload dir."""
+    scan = get_scan(db, scan_id)
+    if scan is None:
+        return False
+    for model in (models.RecommendationModel, models.CertificateModel,
+                  models.DependencyModel, models.CryptoAssetModel):
+        db.query(model).filter(model.scan_id == scan_id).delete()
+    db.delete(scan)
+    db.commit()
+    scan_dir = UPLOAD_ROOT / scan_id
+    if scan_dir.exists():
+        shutil.rmtree(scan_dir, ignore_errors=True)
+    return True
+
+
+def clear_scans(db: Session) -> int:
+    """Delete every scan (and related rows + staged upload dirs).
+
+    Returns the number of scans removed. Idempotent — safe to call when the
+    table is already empty.
+    """
+    scan_ids = [s.scan_id for s in db.query(models.Scan).all()]
+    # Delete child rows across all models in one pass, then the scans.
+    ids = {sid: None for sid in scan_ids}
+    for model in (models.RecommendationModel, models.CertificateModel,
+                  models.DependencyModel, models.CryptoAssetModel):
+        db.query(model).filter(model.scan_id.in_(scan_ids)).delete()
+    db.query(models.Scan).delete()
+    db.commit()
+    for scan_id in scan_ids:
+        scan_dir = UPLOAD_ROOT / scan_id
+        if scan_dir.exists():
+            shutil.rmtree(scan_dir, ignore_errors=True)
+    return len(scan_ids)
 
 
 def persist_upload(scan: models.Scan, upload: UploadFile) -> Path:

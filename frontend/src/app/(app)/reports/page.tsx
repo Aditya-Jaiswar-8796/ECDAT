@@ -79,9 +79,9 @@ export default function ReportsPage() {
 
 function ReportsContent() {
   const searchParams = useSearchParams();
-  const { selectedScan, onSelect } = useScanSelection(searchParams.get("scan"));
-
   const scans = useScans();
+  const { selectedScan, onSelect } = useScanSelection(searchParams.get("scan"), scans.data);
+
   const assets = useAssets(selectedScan);
   const riskSummary = useRisks(selectedScan);
   const recommendations = useRecommendations(selectedScan);

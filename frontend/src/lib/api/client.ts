@@ -80,6 +80,8 @@ export const api = {
   },
   getScanSummary: (scanId: string) =>
     request<ScanSummary>(`/scans/${scanId}/summary`),
+  /** Delete every scan and its findings (dashboard 'Clear all' action). */
+  clearScans: () => request<{ deleted: number }>("/scans", { method: "DELETE" }),
 
   /* ---- Crypto assets ---- */
   listAssets: (scanId?: string) => {
