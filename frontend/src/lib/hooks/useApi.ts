@@ -161,7 +161,6 @@ export function useAssets(scanId?: string | null): AsyncState<CryptoAsset[]> {
   return usePromise(
     () => api.listAssets(scanId ?? undefined),
     [scanId ?? null],
-    scanId !== undefined,
   );
 }
 
@@ -179,9 +178,8 @@ export function useRecommendations(
   scanId?: string | null,
 ): AsyncState<Recommendation[]> {
   return usePromise(
-    () => api.getScanRecommendations(scanId!),
+    () => scanId ? api.getScanRecommendations(scanId) : api.listRecommendations(),
     [scanId ?? null],
-    Boolean(scanId),
   );
 }
 

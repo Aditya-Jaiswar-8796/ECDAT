@@ -37,19 +37,19 @@ export function ScanStageIndicator({
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
       {headline && <p className="mb-3 text-sm font-semibold text-zinc-200">{headline}</p>}
-      <ol className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0">
+      <ol className="flex flex-col gap-4 sm:grid sm:grid-cols-6 sm:gap-0">
         {stages.map((stage, index) => {
           const connectorCls =
             index === stages.length - 1
               ? "hidden"
-              : "hidden sm:flex h-px flex-1 mx-2 " +
+              : "hidden sm:block absolute left-[calc(100%+0.5rem)] top-3.5 h-px w-4 " +
                 (stage.state === "done" ? "bg-emerald-500/60" : "bg-zinc-800");
           return (
-            <li key={stage.key} className="flex flex-col gap-1 sm:min-w-0 sm:flex-1" title={stage.detail}>
+            <li key={stage.key} className="relative flex min-w-0 flex-col gap-1" title={stage.detail}>
               <div className="flex items-center gap-2">
                 <StateIcon state={stage.state} />
                 <span
-                  className={`text-sm font-medium ${
+                  className={`min-w-0 break-words text-sm font-medium ${
                     stage.state === "active"
                       ? "text-cyan-300"
                       : stage.state === "done"
